@@ -1,0 +1,49 @@
+{
+  "records": [
+    {
+      "name": "table_a",
+      "label": "Item A",
+      "super_class": "",
+      "sys_id": "table_a_id",
+      "sys_package": "pkg_x",
+      "sys_scope": "global",
+      "is_extendable": "true"
+    },
+    {
+      "name": "table_b",
+      "label": "Item B",
+      "super_class": "table_a_id",
+      "sys_id": "table_b_id",
+      "sys_package": "pkg_x",
+      "sys_scope": "global",
+      "is_extendable": "true"
+    },
+    {
+      "name": "table_c",
+      "label": "Item C",
+      "super_class": "table_b_id",
+      "sys_id": "table_c_id",
+      "sys_package": "pkg_x",
+      "sys_scope": "global",
+      "is_extendable": "true"
+    },
+    {
+      "name": "table_d",
+      "label": "Item D",
+      "super_class": "table_a_id",
+      "sys_id": "table_d_id",
+      "sys_package": "pkg_x",
+      "sys_scope": "global",
+      "is_extendable": "false"
+    },
+    {
+      "name": "table_e",
+      "label": "Item E",
+      "super_class": "table_a_id",
+      "sys_id": "table_e_id",
+      "sys_package": "pkg_x",
+      "sys_scope": "global",
+      "is_extendable": "false"
+    }
+  ]
+}

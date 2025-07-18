@@ -1,0 +1,16 @@
+{
+  "records": [
+    {
+      "base_class": "table_e",
+      "dependent_class": "table_d",
+      "cmdb_rel_type": "rel_type_1",
+      "parent": "true"
+    },
+    {
+      "base_class": "table_d",
+      "dependent_class": "table_b",
+      "cmdb_rel_type": "rel_type_2",
+      "parent": "true"
+    }
+  ]
+}

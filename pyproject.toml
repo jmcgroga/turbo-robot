@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sn-cmdb-map"
+version = "0.1.0"
+description = "ServiceNow CMDB Table Relationship Mapper - Creates directed graph visualizations of CMDB table relationships and class hierarchies"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [
+    {name = "ServiceNow CMDB Mapper"}
+]
+keywords = ["servicenow", "cmdb", "graph", "visualization", "relationships"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+dependencies = [
+    "matplotlib>=3.5.0",
+    "networkx>=2.8",
+    "networkx-viewer>=0.3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-mock>=3.10",
+    "pytest-cov>=4.0",
+    "black>=22.0",
+    "flake8>=4.0",
+]
+
+[project.scripts]
+create_relationship_graph = "sn_cmdb_map.cli:main"
+
+[project.urls]
+"Homepage" = "https://github.com/your-org/sn-cmdb-map"
+"Bug Reports" = "https://github.com/your-org/sn-cmdb-map/issues"
+"Source" = "https://github.com/your-org/sn-cmdb-map"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

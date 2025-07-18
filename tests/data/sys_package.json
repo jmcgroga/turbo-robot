@@ -1,0 +1,13 @@
+{
+  "records": [
+    {
+      "source": "pkg_x",
+      "name": "Package X",
+      "version": "1.0.0",
+      "sys_id": "pkg_x_id",
+      "license_category": "none",
+      "sys_class_name": "sys_package",
+      "active": "true"
+    }
+  ]
+}
