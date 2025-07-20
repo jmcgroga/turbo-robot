@@ -10,6 +10,7 @@ import json
 import networkx as nx
 from pathlib import Path
 from typing import Dict, List, Set, Tuple
+import numpy as np
 import sys
 from collections import defaultdict
 import math
@@ -27,9 +28,10 @@ except ImportError as e:
     NETWORKX_VIEWER_ERROR = str(e)
 
 class CMDBGraphBuilder:
-    def __init__(self, base_path: str = "."):
+    def __init__(self, data_dir: str = None):
         """Initialize the CMDB graph builder."""
-        self.base_path = Path(base_path)
+        # If data_dir is provided, use it; otherwise use current directory
+        self.base_path = Path(data_dir) if data_dir else Path(".")
         self.graph = nx.DiGraph()
         self.tables = {}  # Store table information
         self.relationship_types = {}  # Store relationship type information
@@ -440,29 +442,9 @@ class CMDBGraphBuilder:
             plt.figure(figsize=(16, 12))
             plt.clf()
             
-            # Create layout - try planar first, then other good options for this type of graph
-            try:
-                print("Attempting planar layout...")
-                pos = nx.planar_layout(subgraph)
-                layout_used = "planar"
-                print("Using planar layout")
-            except nx.NetworkXException:
-                print("Planar layout failed (expected for CMDB graphs), trying Kamada-Kawai layout...")
-                try:
-                    pos = nx.kamada_kawai_layout(subgraph, scale=2)
-                    layout_used = "kamada_kawai"
-                    print("Using Kamada-Kawai layout")
-                except:
-                    print("Kamada-Kawai layout failed, trying spring layout...")
-                    try:
-                        pos = nx.spring_layout(subgraph, k=2, iterations=50, seed=42)
-                        layout_used = "spring"
-                        print("Using spring layout")
-                    except:
-                        print("Spring layout failed, using circular layout...")
-                        pos = nx.circular_layout(subgraph)
-                        layout_used = "circular"
-                        print("Using circular layout")
+            # Apply auto layout
+            pos, layout_used = self._apply_layout(subgraph, "auto")
+            print(f"Using {layout_used} layout")
             
             # Draw nodes with colors and sizes
             node_sizes = []
@@ -843,8 +825,87 @@ class CMDBGraphBuilder:
         
         return path_graph
     
+    def _apply_layout(self, graph: nx.DiGraph, layout: str) -> Tuple[dict, str]:
+        """Apply the specified layout algorithm to the graph."""
+        
+        # Define available layouts with their functions and parameters
+        layout_functions = {
+            "spring": lambda g: nx.spring_layout(g, k=max(2, g.number_of_nodes() * 0.15), iterations=100, seed=42),
+            "kamada_kawai": lambda g: nx.kamada_kawai_layout(g, scale=max(2, g.number_of_nodes() * 0.2)),
+            "planar": lambda g: nx.planar_layout(g, scale=2),
+            "circular": lambda g: nx.circular_layout(g, scale=2),
+            "random": lambda g: nx.random_layout(g, seed=42),
+            "shell": lambda g: nx.shell_layout(g, scale=2),
+            "spectral": lambda g: nx.spectral_layout(g, scale=2),
+            "spiral": lambda g: nx.spiral_layout(g, scale=2),
+            "multipartite": lambda g: nx.multipartite_layout(g, scale=2)
+        }
+        
+        if layout == "auto":
+            # Try layouts in order of preference for CMDB graphs
+            preferred_order = ["planar", "kamada_kawai", "spring", "circular"]
+            
+            for layout_name in preferred_order:
+                try:
+                    pos = layout_functions[layout_name](graph)
+                    return pos, layout_name
+                except Exception as e:
+                    continue
+            
+            # Final fallback
+            return nx.circular_layout(graph), "circular"
+        
+        elif layout in layout_functions:
+            try:
+                pos = layout_functions[layout](graph)
+                return pos, layout
+            except Exception as e:
+                print(f"Warning: {layout} layout failed ({e}), falling back to circular layout")
+                return nx.circular_layout(graph), "circular"
+        
+        else:
+            print(f"Warning: Unknown layout '{layout}', using auto selection")
+            return self._apply_layout(graph, "auto")
+    
+    def _position_root_node_upper_left(self, pos: dict, root_node: str) -> dict:
+        """Adjust layout positions to place root node in upper left area."""
+        if root_node not in pos:
+            return pos
+        
+        # Convert positions to numpy arrays for easier manipulation
+        positions = np.array(list(pos.values()))
+        nodes = list(pos.keys())
+        
+        # Get root node position
+        root_idx = nodes.index(root_node)
+        root_pos = positions[root_idx]
+        
+        # Calculate bounds of current layout
+        min_x, min_y = positions.min(axis=0)
+        max_x, max_y = positions.max(axis=0)
+        width = max_x - min_x
+        height = max_y - min_y
+        
+        # Flip Y coordinates so that higher Y values are at the top (matplotlib convention)
+        positions[:, 1] = max_y - positions[:, 1] + min_y
+        
+        # Translate so root node is in upper-left quadrant
+        # Target position: 25% from left edge, 75% from bottom (upper area)
+        target_x = min_x + width * 0.25
+        target_y = min_y + height * 0.75
+        
+        # Calculate translation needed
+        current_root_pos = positions[root_idx]
+        translation = np.array([target_x - current_root_pos[0], target_y - current_root_pos[1]])
+        
+        # Apply translation to all nodes
+        positions += translation
+        
+        # Convert back to position dictionary
+        return {node: tuple(positions[i]) for i, node in enumerate(nodes)}
+    
     def visualize_table_graph(self, table_name: str, output_dir: str = "path_graphs", 
-                             max_depth: int = 2, save_format: str = "png", target_table: str = None, shortest_path_only: bool = False) -> bool:
+                             max_depth: int = 2, save_format: str = "png", target_table: str = None, shortest_path_only: bool = False, layout: str = "auto") -> bool:
         """Create and save a visualization for a specific table's relationships."""
         
         # If target_table is specified, create a path graph between the two tables
@@ -876,25 +937,12 @@ class CMDBGraphBuilder:
             plt.figure(figsize=(fig_width, fig_height))
             plt.clf()
             
-            # Try planar layout first (more likely to work with smaller graphs)
-            try:
-                pos = nx.planar_layout(centered_graph, scale=2)
-                layout_used = "planar"
-            except nx.NetworkXException:
-                try:
-                    # Use larger scale for better spacing
-                    scale_factor = max(2, centered_graph.number_of_nodes() * 0.2)
-                    pos = nx.kamada_kawai_layout(centered_graph, scale=scale_factor)
-                    layout_used = "kamada_kawai"
-                except:
-                    try:
-                        # Increase k value for better node separation
-                        k_value = max(2, centered_graph.number_of_nodes() * 0.15)
-                        pos = nx.spring_layout(centered_graph, k=k_value, iterations=100, seed=42)
-                        layout_used = "spring"
-                    except:
-                        pos = nx.circular_layout(centered_graph, scale=2)
-                        layout_used = "circular"
+            # Apply the specified layout
+            pos, layout_used = self._apply_layout(centered_graph, layout)
+            
+            # Position root node (source table) in upper left for path graphs
+            if target_table:
+                pos = self._position_root_node_upper_left(pos, table_name)
             
             # Draw nodes with different colors for source/target tables vs others
             node_colors = []
@@ -1102,13 +1150,14 @@ class CMDBGraphBuilder:
             plt.tight_layout()
             
             # Save the image
+            layout_suffix = f"_{layout_used}" if layout != "auto" else ""
             if target_table:
                 if shortest_path_only:
-                    output_file = output_path / f"{table_name}_to_{target_table}_shortest_path.{save_format}"
+                    output_file = output_path / f"{table_name}_to_{target_table}_shortest_path{layout_suffix}.{save_format}"
                 else:
-                    output_file = output_path / f"{table_name}_to_{target_table}_paths.{save_format}"
+                    output_file = output_path / f"{table_name}_to_{target_table}_paths{layout_suffix}.{save_format}"
             else:
-                output_file = output_path / f"{table_name}.{save_format}"
+                output_file = output_path / f"{table_name}{layout_suffix}.{save_format}"
             plt.savefig(output_file, format=save_format, dpi=200, bbox_inches='tight', 
                        facecolor='white', edgecolor='none')
             plt.close()
@@ -1274,25 +1323,9 @@ class CMDBGraphBuilder:
             plt.figure(figsize=(14, 10))
             plt.clf()
             
-            # Create layout - try planar first, then other good options for this type of graph
-            try:
-                print("Attempting planar layout...")
-                pos = nx.planar_layout(subgraph)
-                print("Using planar layout")
-            except nx.NetworkXException:
-                print("Planar layout failed (expected for CMDB graphs), trying Kamada-Kawai layout...")
-                try:
-                    pos = nx.kamada_kawai_layout(subgraph, scale=2)
-                    print("Using Kamada-Kawai layout")
-                except:
-                    print("Kamada-Kawai layout failed, trying spring layout...")
-                    try:
-                        pos = nx.spring_layout(subgraph, k=2, iterations=50, seed=42)
-                        print("Using spring layout")
-                    except:
-                        print("Spring layout failed, using circular layout...")
-                        pos = nx.circular_layout(subgraph)
-                        print("Using circular layout")
+            # Apply auto layout
+            pos, layout_used = self._apply_layout(subgraph, "auto")
+            print(f"Using {layout_used} layout")
             
             # Draw nodes with colors and sizes
             node_sizes = []

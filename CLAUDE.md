@@ -28,13 +28,30 @@ uv pip install -e .
 **Running the application:**
 ```bash
 # Main CLI application (installed script)
-uv run create_relationship_graph --generate-single-table-graph table_e --target-table table_c --shortest-path
+uv run create_relationship_graph table_e table_c --shortest-path
 
 # Alternative: Run as module
-uv run python -m sn_cmdb_map --generate-single-table-graph table_e --target-table table_c --shortest-path
+uv run python -m sn_cmdb_map table_e table_c --shortest-path
 
 # Find all paths between tables (not just shortest)
-uv run create_relationship_graph --generate-single-table-graph table_e --target-table table_c
+uv run create_relationship_graph table_e table_c
+
+# Specify data directory containing JSON files
+uv run create_relationship_graph table_e table_c --data-dir /path/to/json/files
+
+# Use environment variable for data directory
+export CMDB_DATA_DIR=/path/to/json/files
+uv run create_relationship_graph table_e table_c
+
+# Use .env file for configuration
+echo "CMDB_DATA_DIR=/path/to/json/files" > .env
+uv run create_relationship_graph table_e table_c
+
+# Specify layout algorithm
+uv run create_relationship_graph table_e table_c --layout spring
+
+# Generate graphs with all available layouts
+uv run create_relationship_graph table_e table_c --layout all
 ```
 
 **Package management:**
@@ -110,8 +127,12 @@ sn-cmdb-map/
 
 The project has been simplified to focus specifically on path finding between two tables:
 
-- **Required**: `--generate-single-table-graph SOURCE_TABLE` and `--target-table TARGET_TABLE`
+- **Required**: `SOURCE_TABLE` and `TARGET_TABLE` as positional arguments
 - **Optional**: `--shortest-path` to show only the shortest path
+- **Optional**: `--data-dir` to specify directory containing JSON data files
+- **Optional**: `--layout` to specify graph layout algorithm or 'all' for multiple layouts
+- **Environment**: `CMDB_DATA_DIR` environment variable for data directory
+- **Configuration**: `.env` file support for setting environment variables
 - **Output**: Visual PNG graphs showing the relationship paths with timestamped directories
 
 ### Graph Structure
@@ -125,7 +146,39 @@ The project has been simplified to focus specifically on path finding between tw
 
 ### Data Requirements
 
-The tool requires JSON files with table definitions, relationship types, and relationship mappings. For testing, obfuscated mock data is used with:
+The tool requires JSON files with table definitions, relationship types, and relationship mappings:
+
+- `sys_db_object.json` - Table definitions with inheritance hierarchy
+- `cmdb_rel_type.json` - Relationship type definitions  
+- `cmdb_rel_type_suggest.json` - CI relationship mappings
+- `em_suggested_relation_type.json` - Additional relationship mappings
+- `sys_package.json` - Package information
+
+**Data Directory Configuration (priority order):**
+1. `--data-dir` command line option
+2. `CMDB_DATA_DIR` environment variable
+3. `.env` file with `CMDB_DATA_DIR` setting
+4. Current working directory (default)
+
+**Graph Layout Options:**
+- `auto` - Automatic layout selection (tries planar → kamada_kawai → spring → circular)
+- `spring` - Force-directed layout (Fruchterman-Reingold algorithm)
+- `kamada_kawai` - Path-length based layout for aesthetic results (requires scipy)
+- `planar` - Non-intersecting layout (when graph is planar)
+- `circular` - Nodes arranged in a circle
+- `random` - Random positioning
+- `shell` - Concentric circle positioning
+- `spectral` - Eigenvector-based layout
+- `spiral` - Spiral pattern positioning
+- `multipartite` - Layer-based layout for hierarchical data (requires node attributes)
+- `all` - Generates graphs using all available layouts
+
+**Layout Positioning:**
+- For path graphs between two tables, the source (root) table is automatically positioned in the upper-left area
+- The layout algorithm positions nodes naturally, then the entire graph is translated to place the source table optimally
+- This provides consistent, intuitive orientation regardless of the underlying layout algorithm used
+
+For testing, obfuscated mock data is used with:
 - Tables named as letters (`table_a`, `table_b`, etc.)
 - Relationships named as numbers (`rel_type_1`, `rel_type_2`, etc.)
 - Generic package names (`pkg_x`)

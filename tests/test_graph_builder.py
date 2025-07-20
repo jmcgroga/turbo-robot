@@ -37,11 +37,11 @@ class TestCMDBGraphBuilder:
     @pytest.fixture
     def builder(self, test_data_dir):
         """Create a CMDBGraphBuilder instance with test data."""
-        return CMDBGraphBuilder(base_path=str(test_data_dir))
+        return CMDBGraphBuilder(data_dir=str(test_data_dir))
 
     def test_init(self, test_data_dir):
         """Test CMDBGraphBuilder initialization."""
-        builder = CMDBGraphBuilder(base_path=str(test_data_dir))
+        builder = CMDBGraphBuilder(data_dir=str(test_data_dir))
         
         assert builder.base_path == Path(test_data_dir)
         assert isinstance(builder.graph, nx.DiGraph)
@@ -283,7 +283,7 @@ class TestCMDBGraphBuilder:
     def test_error_handling_missing_files(self, tmp_path):
         """Test error handling when data files are missing."""
         # Create builder with empty directory
-        builder = CMDBGraphBuilder(base_path=str(tmp_path))
+        builder = CMDBGraphBuilder(data_dir=str(tmp_path))
         
         # These should not raise exceptions
         builder.load_tables()
